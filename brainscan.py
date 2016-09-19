@@ -19,7 +19,10 @@ crop_y = int(sys.argv[6])
 
 ndvi_image = "data/ndviPositive.LT.lemingtonRd.tif"
 #vox_image = 'data/MK/vox390.MK.'
-vox_image = 'data/LT_20.21/vox390.LT.'
+vox_image = 'data/LT_'+str(x_val)+'.'+str(y_val)+'/vox390.LT.'
+
+ndvi_offs_x=0
+ndvi_offs_y=260
 
 # range conversion - not so effective, but could be used elsewhere...
 def convert(old_value):
@@ -88,7 +91,7 @@ def categorise(value, ndvi, x, y, z):
 minecraft_cols = {-1:(255,255,255),
                   5:(127,255,127),
                   4:(200,255,200),
-                  7:(127,127,127),
+                  7:(255,127,64),
                   13:(0,255,0),
                   15:(0,0,0)}
 
@@ -103,16 +106,16 @@ def get_colour(value,ndvi,x,y,z):
 def plot_cross(images, y, ndvi):
 	# creating new grayscale image
 	new = Image.new('RGB', (260, z_val))
-
+        print(y)
 	# enumerate over images
 	for z in range(0,z_val):
                 image = images[z]
 		# grab 'line' of image
 		line = image[y]
-                print((z_val-1) - z)
 		for x, value in enumerate(line):
 			# place pixel in x position, at image index, with density value                        
-			new.putpixel((x, (z_val-1) - z), get_colour(value,ndvi[y][x],x,y,z))
+			new.putpixel((x, (z_val-1) - z), 
+                                     get_colour(value,ndvi[y+ndvi_offs_x][x+ndvi_offs_y],x,y,z))
 	new.save("data/out/{0:04d}.png".format(y))
 	return
 
@@ -142,7 +145,7 @@ def plot_smear(images, start, end, ndvi):
                         for x, value in enumerate(line):
                                 # place pixel in x position, at image index, with density value                        
                                 safe_plot_mul(new,x+int(offs/1.5),(((420-1) - z)-(offs/2)),
-                                              get_colour(value,ndvi[y][x],x,y,z))
+                                              get_colour(value,ndvi[y+ndvi_offs_x][x+ndvi_offs_y],x,y,z))
 
 	new.save("data/out/smear.png".format(y))
 
