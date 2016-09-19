@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from PIL import Image
 import numpy, math
 import scipy.misc as smp
@@ -15,6 +16,10 @@ z_val = int(sys.argv[4])
 crop_x = int(sys.argv[5])
 # Y value to start crop
 crop_y = int(sys.argv[6])
+
+ndvi_image = "data/ndviPositive.LT.lemingtonRd.tif"
+#vox_image = 'data/MK/vox390.MK.'
+vox_image = 'data/LT_20.21/vox390.LT.'
 
 # range conversion - not so effective, but could be used elsewhere...
 def convert(old_value):
@@ -46,43 +51,115 @@ def normalise(array):
 # converting TIFF into arrays that we can work with
 def process_image(x, y, z):
 	# Open image, convert to numpy array
-	img = Image.open('data/voxels/all_mk/vox390.MK.'+str(x)+'.'+str(y)+'.'+str(z)+'.tif')
+	img = Image.open(vox_image+str(x)+'.'+str(y)+'.'+str(z)+'.tif')
 	numpy_array = numpy.array(img)
 	# image_array contains 260 arrays of values!
 	image_array = normalise(numpy_array)
 
 	return image_array
 
+def load_ndvi_image():
+	img = Image.open(ndvi_image)
+	numpy_array = numpy.array(img)
+	image_array = normalise(numpy_array)
+	return image_array
+
 # create an array of each image for this section
 images = [process_image(x_val, y_val, x) for x in range(0,z_val + 1)]
 
+def categorise(value, ndvi, x, y, z):
+        col = -1
+        vox_thresh = 0.01
+        ndvi_thresh = 0.2
+        if value>=vox_thresh:        
+                if z >= 9 and z <=70 and ndvi >= ndvi_thresh:
+                        col = 5 # tree
+                elif z < 2 and ndvi >= ndvi_thresh:
+                        col = 4 # grass
+                elif z >= 1.0 and z <= 70 and ndvi < ndvi_thresh:
+                        col = 7 # building
+                elif z >= 1.0 and z <= 8 and ndvi >= ndvi_thresh:
+                        col = 13 # shrub
+                elif z < 2 and ndvi < ndvi_thresh:
+                        col = 15 # road
 
-def plot_cross(images, l):
+        return col
+
+minecraft_cols = {-1:(255,255,255),
+                  5:(127,255,127),
+                  4:(200,255,200),
+                  7:(127,127,127),
+                  13:(0,255,0),
+                  15:(0,0,0)}
+
+def get_colour(value,ndvi,x,y,z):
+        ret = minecraft_cols[categorise(value,ndvi,x,y,z)]
+        sc = convert(value)/255.0
+        sc*=4
+        return (int(ret[0]*sc),
+                int(ret[1]*sc),
+                int(ret[2]*sc))
+
+def plot_cross(images, y, ndvi):
 	# creating new grayscale image
-	new = Image.new('L', (260, 260))
+	new = Image.new('RGB', (260, z_val))
 
 	# enumerate over images
-	for i, image in enumerate(images):
+	for z in range(0,z_val):
+                image = images[z]
 		# grab 'line' of image
-		line = image[l]
+		line = image[y]
+                print((z_val-1) - z)
 		for x, value in enumerate(line):
-			# place pixel in x position, at image index, with density value
-			new.putpixel((x, 259 - i), (value * (255 * 5)))
-	new.save("data/voxels/cross/mk-7-23/mk-7-23-{0:04d}.png".format(l))
+			# place pixel in x position, at image index, with density value                        
+			new.putpixel((x, (z_val-1) - z), get_colour(value,ndvi[y][x],x,y,z))
+	new.save("data/out/{0:04d}.png".format(y))
 	return
 
+def safe_plot(pixels,x,y,c):
+        if x>0 and x<pixels.size[0] and y>0 and y<pixels.size[1]:
+                pixels.putpixel((x,y),c)
+
+def safe_plot_mul(pixels,x,y,c):
+        if x>0 and x<pixels.size[0] and y>0 and y<pixels.size[1]:
+                e = pixels.getpixel((x,y))                
+                pixels.putpixel((x,y),(int(e[0]+c[0]*0.4),
+                                       int(e[1]+c[1]*0.4),
+                                       int(e[2]+c[2]*0.4)))
+
+
+def plot_smear(images, start, end, ndvi):
+	# creating new grayscale image
+	new = Image.new('RGB', (260*2, 260*2))
+
+        for y in range(start,end):
+                offs = y
+                # enumerate over images
+                for z in range(0,z_val):
+                        image = images[z]
+                        # grab 'line' of image
+                        line = image[y]
+                        for x, value in enumerate(line):
+                                # place pixel in x position, at image index, with density value                        
+                                safe_plot_mul(new,x+int(offs/1.5),(((420-1) - z)-(offs/2)),
+                                              get_colour(value,ndvi[y][x],x,y,z))
+
+	new.save("data/out/smear.png".format(y))
+
 def png_convert(images):
+        ndvi = load_ndvi_image()
+        print (len(ndvi))
 	new = Image.new('RGBA', (260, 260))
 	for i, image in enumerate(images):
 		for x, line in enumerate(image):
 			for y, value in enumerate(line):
-				new.putpixel((x, y), ((convert(value)), (convert(value)), (convert(value)), (convert(value))))
+                                new.putpixel((x, y), ((convert(value)), (convert(value)), (convert(value)), (convert(value))))
 				# w, h = new.size
 				# new_image = new.crop((crop_x, crop_y, crop_x + size, crop_y + size))
 				# resized = new_image.resize((50, 50), Image.ANTIALIAS)
 
 	
-		directory = "data/voxels/png/mk-"+str(x_val)+"-"+str(y_val)+"/crop/"+str(size) + str(crop_x) + str(crop_y)
+		directory = "data/out/mk-"+str(x_val)+"-"+str(y_val)+"/crop/"+str(size) + str(crop_x) + str(crop_y)
 		if not os.path.exists(directory):
 			os.makedirs(directory)
 
@@ -92,10 +169,13 @@ def png_convert(images):
 		print "Saved!"
 
 # creates 260 images
-# for i in range(0, 259):
-# 	# i = 'line' of image
-# 	png_convert(images, i)
+ndvi = load_ndvi_image()
+for i in range(0, 259):
+	# i = 'line' of image
+	plot_cross(images, i, ndvi)
 
-png_convert(images)
+#plot_smear(images, 0,260, ndvi)
+
+#png_convert(images)
 
 
