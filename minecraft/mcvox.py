@@ -19,20 +19,20 @@ def bulldoze():
 	print("finished bulldozing")
 	
 
-# X value of source tile
-x_val = 20
-# Y value of source tile
-y_val = 21
-# Max Z value of source tile
-z_val = 70
-# X value to start crop
-crop_x = 0  
-# Y value to start crop
-crop_y = 0
+#city="BD"
+#x_org,y_org = 7,18
+#x_val,y_val = 7,18
 
-vox_image = '../data/LT_20.21/vox390.LT.'
-#vox_image = 'tif/vox390.MK.'
-ndvi_image = "../data/ndviPositive.LT.lemingtonRd.tif"
+city="LT"
+x_org,y_org = 20,20
+x_val,y_val = 20,21
+
+#city="MK"
+#x_org,y_org = 9,24
+#x_val,y_val = 10,25
+
+vox_image = '../data/voxels/'+city+'/'+city+'_'+str(x_val)+'.'+str(y_val)+'/vox390.'+city+'.'
+ndvi_image = '../data/voxels/'+city+'/ndviPositive.'+city+'.section.tif'
 
 # Removing 'nan' from lists - replacing with 0.0 for now, creating new array
 def normalise(array):
@@ -57,50 +57,81 @@ def load_ndvi_image():
 	image_array = normalise(numpy_array)
 	return image_array
 
-# create an array of each image for this section
-images = [process_image(x_val, y_val, x) for x in range(0,z_val + 1)]
-def material(value, ndvi, x, y, i):
+def material(value, ndvi, x, y, i, greenonly):
         col = -1
         vox_thresh = 0.01
         ndvi_thresh = 0.2
-
+        mat = MELON
+        low_thresh = 2
+        building_col=0
+        if greenonly: building_col=-1
+        
         if value>=vox_thresh:        
+                # tree
                 if i >= 9 and i <=70 and ndvi >= ndvi_thresh:
-                        col = 5 # tree
-                elif i < 2 and ndvi >= ndvi_thresh:
-                        col = 4 # grass
-                elif i >= 1.0 and i <= 70 and ndvi < ndvi_thresh:
-                        col = 7 # building
-                elif i >= 1.0 and i <= 8 and ndvi >= ndvi_thresh:
-                        col = 13 # shrub
-                elif i < 2 and ndvi < ndvi_thresh:
-                        col = 15 # road
+                        col = 0 
+                        mat = 18 # leaves
+                        #if value>=0.2: mat=17 # wood
+
+                # grass
+                elif i <= low_thresh and ndvi >= ndvi_thresh:
+                        col = 0 # grass 
+                        mat = 2 # grass
+
+                # building
+                elif i > low_thresh and i <= 70 and ndvi < ndvi_thresh:
+                        col = building_col 
+                        mat = 45 # brick block
+
+                # shrub
+                elif i > low_thresh and i <= 8 and ndvi >= ndvi_thresh:
+                        col = 13 
+                        mat = 35 # wool
+                        #if value>=0.2: mat=17 # wood
+
+                # road
+                elif i <= low_thresh and ndvi < ndvi_thresh:
+                        col = building_col
+                        mat = 7 # bedrock
 
         #if ndvi >= ndvi_thresh and col > 0:
-        if col > 0:
-		mc.setBlocks(x-127,i,y-127, x-127,i,y-127, WOOL.id, col)
+        if col >= 0:
+                xx = x-127
+                yy = y-127
+		mc.setBlocks(xx,i,yy, xx+2,i,yy+2, mat, col)
 		#mc.setBlocks(127-x,i,y-127,
                 #             (127-x)+1,i+1,(y-127)+1, WOOL.id, col)
 	
+def get_ndvi(ndvi,x,y):
+        size = 260
+        ydiff = 1-(y_val-y_org)
+        xdiff = x_val-x_org
+        return ndvi[x+(ydiff*size)][y+(xdiff*size)]
+
 def png_convert(images):
         ndvi = load_ndvi_image()
-        print (len(ndvi))
         # draw the base layer at -1
-        size = 260
+        size = 260/3
         for x in range(0,size):
                 for y in range(0,size):
-                        material(1,ndvi[x][y],x,y,-1)
+                        xx = x*3
+                        yy = y*3
+                        material(1,get_ndvi(ndvi,x,y),xx,yy,-1,False)
                         
 	for i, image in enumerate(images):
 		print "layer", i
 		for x, line in enumerate(image):
 			for y, value in enumerate(line):
+                                xx = x*3
+                                yy = y*3
                                 #if x>50 and y>0 and x<100 and y<50:
-                                        
-                                material(value, ndvi[x][y], x, y, i)
+                                material(value, get_ndvi(ndvi,x,y), xx, yy, i, True)
 		print "layer", i, "complete"
 	
 	return
+
+# create an array of each image for this section
+images = [process_image(x_val, y_val, x) for x in range(0,71)]
 
 bulldoze()
 png_convert(images)
