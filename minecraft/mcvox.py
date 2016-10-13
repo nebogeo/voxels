@@ -23,13 +23,18 @@ def bulldoze():
 #x_org,y_org = 7,18
 #x_val,y_val = 7,18
 
-city="LT"
-x_org,y_org = 20,20
-x_val,y_val = 20,21
+#city="LT"
+#x_org,y_org = 20,20
+#x_val,y_val = 20,20
 
-#city="MK"
-#x_org,y_org = 9,24
-#x_val,y_val = 10,25
+city="MK"
+x_org,y_org = 9,24
+x_val,y_val = 9,24
+
+do_third = True
+xthird = 0
+ythird = 2    
+do_green_only = False
 
 vox_image = '../data/voxels/'+city+'/'+city+'_'+str(x_val)+'.'+str(y_val)+'/vox390.'+city+'.'
 ndvi_image = '../data/voxels/'+city+'/ndviPositive.'+city+'.section.tif'
@@ -64,6 +69,7 @@ def material(value, ndvi, x, y, i, greenonly):
         mat = MELON
         low_thresh = 2
         building_col=0
+        size = 260
         if greenonly: building_col=-1
         
         if value>=vox_thresh:        
@@ -96,11 +102,12 @@ def material(value, ndvi, x, y, i, greenonly):
 
         #if ndvi >= ndvi_thresh and col > 0:
         if col >= 0:
-                xx = x-127
+                xx = 127-x
                 yy = y-127
-		mc.setBlocks(xx,i,yy, xx+2,i,yy+2, mat, col)
-		#mc.setBlocks(127-x,i,y-127,
-                #             (127-x)+1,i+1,(y-127)+1, WOOL.id, col)
+		if do_third:
+                        mc.setBlocks(xx,i,yy, xx+2,i,yy+2, mat, col)
+                else:
+                        mc.setBlocks(xx,i,yy, xx,i,yy, mat, col)
 	
 def get_ndvi(ndvi,x,y):
         size = 260
@@ -111,22 +118,46 @@ def get_ndvi(ndvi,x,y):
 def png_convert(images):
         ndvi = load_ndvi_image()
         # draw the base layer at -1
-        size = 260/3
-        for x in range(0,size):
-                for y in range(0,size):
-                        xx = x*3
-                        yy = y*3
-                        material(1,get_ndvi(ndvi,x,y),xx,yy,-1,False)
-                        
-	for i, image in enumerate(images):
+        if do_third:
+                size = 260/3
+                xstart = size*xthird
+                xend = size*(xthird+1)
+                ystart = size*ythird
+                yend = size*(ythird+1)
+                block_size = 3
+        else:
+                size = 260
+                xstart = 0
+                xend = size
+                ystart = 0
+                yend = size
+                block_size = 1
+        
+        print xstart,xend
+        print ystart,yend
+
+        worldx = 0 # minecraft pos
+        worldy = 0
+        
+        for x in range(xstart,xend):
+                for y in range(ystart,yend):
+                        material(1,get_ndvi(ndvi,x,y),worldx,worldy,-1,False)
+                        worldy+=block_size
+                worldx+=block_size
+                worldy=0
+                
+        for i, image in enumerate(images):
 		print "layer", i
-		for x, line in enumerate(image):
-			for y, value in enumerate(line):
-                                xx = x*3
-                                yy = y*3
-                                #if x>50 and y>0 and x<100 and y<50:
-                                material(value, get_ndvi(ndvi,x,y), xx, yy, i, True)
-		print "layer", i, "complete"
+                worldx = 0 # minecraft pos
+                worldy = 0
+                for x in range(xstart,xend):
+                        line = image[x]
+                        for y in range(ystart,yend):
+                                material(line[y], get_ndvi(ndvi,x,y), worldx, worldy, i, do_green_only)
+                                worldy+=block_size
+                        worldx+=block_size
+                        worldy=0
+ 		print "layer", i, "complete"
 	
 	return
 
