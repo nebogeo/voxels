@@ -23,18 +23,20 @@ def bulldoze():
 #x_org,y_org = 7,18
 #x_val,y_val = 7,18
 
-#city="LT"
-#x_org,y_org = 20,20
-#x_val,y_val = 20,20
+city="LT"
+x_org,y_org = 20,20
+x_val,y_val = 20,20
 
-city="MK"
-x_org,y_org = 9,24
-x_val,y_val = 9,24
+#city="MK"
+#x_org,y_org = 9,24
+#x_val,y_val = 9,24
 
 do_third = True
-xthird = 0
+xthird = 1
 ythird = 2    
 do_green_only = False
+
+threed_print = True # thickens voxels
 
 vox_image = '../data/voxels/'+city+'/'+city+'_'+str(x_val)+'.'+str(y_val)+'/vox390.'+city+'.'
 ndvi_image = '../data/voxels/'+city+'/ndviPositive.'+city+'.section.tif'
@@ -105,7 +107,11 @@ def material(value, ndvi, x, y, i, greenonly):
                 xx = 127-x
                 yy = y-127
 		if do_third:
-                        mc.setBlocks(xx,i,yy, xx+2,i,yy+2, mat, col)
+                        if threed_print:
+                                # thicken so at 1mm per block it's 3mm print
+                                mc.setBlocks(xx,i-2,yy, xx+4,i,yy+4, mat, col)
+                        else:
+                                mc.setBlocks(xx,i,yy, xx+2,i,yy+2, mat, col)
                 else:
                         mc.setBlocks(xx,i,yy, xx,i,yy, mat, col)
 	
@@ -141,13 +147,15 @@ def png_convert(images):
         
         for x in range(xstart,xend):
                 for y in range(ystart,yend):
-                        material(1,get_ndvi(ndvi,x,y),worldx,worldy,-1,False)
+                        material(1,get_ndvi(ndvi,x,y),worldx,worldy,1,False)
                         worldy+=block_size
                 worldx+=block_size
                 worldy=0
                 
-        for i, image in enumerate(images):
-		print "layer", i
+        for ri, image in enumerate(images):
+                i = 70-ri
+                i+=1
+                print "layer", i
                 worldx = 0 # minecraft pos
                 worldy = 0
                 for x in range(xstart,xend):
@@ -163,7 +171,7 @@ def png_convert(images):
 
 # create an array of each image for this section
 images = [process_image(x_val, y_val, x) for x in range(0,71)]
-
+images.reverse()
 bulldoze()
 png_convert(images)
 
