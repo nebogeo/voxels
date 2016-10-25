@@ -1,6 +1,24 @@
+#!/usr/bin/env python
+# Minecraft LiDAR voxel visualisation
+# Copyright (C) 2016 Foam Kernow, Francesca Sargent, Dave Griffiths
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
 from PIL import Image
 import numpy, math, sys
 
+# requires Raspberry Pi version
 sys.path.append("/opt/minecraft-pi/api/python/")
 
 from mcpi import minecraft
@@ -8,16 +26,7 @@ from mcpi.block import *
 
 mc = minecraft.Minecraft.create()
 
-def bulldoze():
-	size=360
-	height=255 
-	print("bulldozing")
-	mc.setBlocks(-size/2,0,-size/2,size/2,height,size/2,AIR)
-	mc.setBlocks(-size/2,-1,-size/2, size/2,-1,size/2,WOOL,1)
-	# change this
-	#box(WOOL,point(-size/2,-1,-size/2),point(size,1,size))
-	print("finished bulldozing")
-	
+# choose your city and area	
 
 #city="BD"
 #x_org,y_org = 7,18
@@ -41,6 +50,17 @@ threed_print = True # thickens voxels
 vox_image = '../data/voxels/'+city+'/'+city+'_'+str(x_val)+'.'+str(y_val)+'/vox390.'+city+'.'
 ndvi_image = '../data/voxels/'+city+'/ndviPositive.'+city+'.section.tif'
 
+# clears the world 
+def bulldoze():
+	size=360
+	height=255 
+	print("bulldozing")
+	mc.setBlocks(-size/2,0,-size/2,size/2,height,size/2,AIR)
+	mc.setBlocks(-size/2,-1,-size/2, size/2,-1,size/2,WOOL,1)
+	# change this
+	#box(WOOL,point(-size/2,-1,-size/2),point(size,1,size))
+	print("finished bulldozing")
+
 # Removing 'nan' from lists - replacing with 0.0 for now, creating new array
 def normalise(array):
 	data = []
@@ -58,12 +78,14 @@ def process_image(x, y, z):
 	image_array = normalise(numpy_array)
 	return image_array
 
+# load the vegetation index map
 def load_ndvi_image():
 	img = Image.open(ndvi_image)
 	numpy_array = numpy.array(img)
 	image_array = normalise(numpy_array)
 	return image_array
 
+# write the material for the density and vegetation index
 def material(value, ndvi, x, y, i, greenonly):
         col = -1
         vox_thresh = 0.01
@@ -114,16 +136,18 @@ def material(value, ndvi, x, y, i, greenonly):
                                 mc.setBlocks(xx,i,yy, xx+2,i,yy+2, mat, col)
                 else:
                         mc.setBlocks(xx,i,yy, xx,i,yy, mat, col)
-	
+
+# get correct section of ndvi map	
 def get_ndvi(ndvi,x,y):
         size = 260
         ydiff = 1-(y_val-y_org)
         xdiff = x_val-x_org
         return ndvi[x+(ydiff*size)][y+(xdiff*size)]
 
-def png_convert(images):
+
+def build(images):
         ndvi = load_ndvi_image()
-        # draw the base layer at -1
+        # calculate region if we are doing a third of the voxel map
         if do_third:
                 size = 260/3
                 xstart = size*xthird
@@ -132,6 +156,7 @@ def png_convert(images):
                 yend = size*(ythird+1)
                 block_size = 3
         else:
+                # do the whole map
                 size = 260
                 xstart = 0
                 xend = size
@@ -139,12 +164,10 @@ def png_convert(images):
                 yend = size
                 block_size = 1
         
-        print xstart,xend
-        print ystart,yend
-
-        worldx = 0 # minecraft pos
+        worldx = 0 # minecraft world pos
         worldy = 0
         
+        # draw the base layer at -1
         for x in range(xstart,xend):
                 for y in range(ystart,yend):
                         material(1,get_ndvi(ndvi,x,y),worldx,worldy,1,False)
@@ -152,6 +175,7 @@ def png_convert(images):
                 worldx+=block_size
                 worldy=0
                 
+        # draw the rest of the layers
         for ri, image in enumerate(images):
                 i = 70-ri
                 i+=1
@@ -173,5 +197,5 @@ def png_convert(images):
 images = [process_image(x_val, y_val, x) for x in range(0,71)]
 images.reverse()
 bulldoze()
-png_convert(images)
+build(images)
 
