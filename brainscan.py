@@ -19,7 +19,8 @@ crop_y = int(sys.argv[6])
 
 ndvi_image = "data/ndviPositive.LT.lemingtonRd.tif"
 #vox_image = 'data/MK/vox390.MK.'
-vox_image = 'data/LT_'+str(x_val)+'.'+str(y_val)+'/vox390.LT.'
+#vox_image = 'data/LT_'+str(x_val)+'.'+str(y_val)+'/vox390.LT.'
+vox_image = 'data/BD_vox/vox390.BD.'
 
 ndvi_offs_x=0
 ndvi_offs_y=260
@@ -67,8 +68,6 @@ def load_ndvi_image():
 	image_array = normalise(numpy_array)
 	return image_array
 
-# create an array of each image for this section
-images = [process_image(x_val, y_val, x) for x in range(0,z_val + 1)]
 
 def categorise(value, ndvi, x, y, z):
         col = -1
@@ -150,10 +149,10 @@ def plot_smear(images, start, end, ndvi):
 	new.save("data/out/smear.png".format(y))
 
 def png_convert(images):
-        ndvi = load_ndvi_image()
-        print (len(ndvi))
-	new = Image.new('RGBA', (260, 260))
-	for i, image in enumerate(images):
+        new = Image.new('RGBA', (260, 260))
+
+	for i, im in enumerate(images):
+                image = im[2]
 		for x, line in enumerate(image):
 			for y, value in enumerate(line):
                                 new.putpixel((x, y), ((convert(value)), (convert(value)), (convert(value)), (convert(value))))
@@ -162,23 +161,34 @@ def png_convert(images):
 				# resized = new_image.resize((50, 50), Image.ANTIALIAS)
 
 	
-		directory = "data/out/mk-"+str(x_val)+"-"+str(y_val)+"/crop/"+str(size) + str(crop_x) + str(crop_y)
+		directory = "data/out/bd/"
 		if not os.path.exists(directory):
 			os.makedirs(directory)
 
-		filename = "mk"+str(i)+".png"
+                filename = "mk-"+str(im[0])+"."+str(im[1])+".png"
 		print directory, filename
-		new.save(directory + "/" + filename)
+		new.save(directory+filename)
 		print "Saved!"
 
+# create an array of each image for this section
+#images = [process_image(x_val, y_val, x) for x in range(0,z_val + 1)]
+
+
+images = []
+for y in range(0,50):
+        for x in range(0,50):
+                try:
+                        images.append([x,y,process_image(x, y, 2)])
+                except: pass
+
 # creates 260 images
-ndvi = load_ndvi_image()
-for i in range(0, 259):
+#ndvi = load_ndvi_image()
+#for i in range(0, 259):
 	# i = 'line' of image
-	plot_cross(images, i, ndvi)
+#	plot_cross(images, i, ndvi)
 
 #plot_smear(images, 0,260, ndvi)
 
-#png_convert(images)
+png_convert(images)
 
 
